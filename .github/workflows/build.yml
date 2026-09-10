@@ -27,19 +27,23 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Gradle Kur
-        uses: gradle/actions/setup-gradle@v3
-
       - name: Paketleri Yukle
         run: npm install
 
-      - name: Expo Prebuild (Android Klasörünü Tamamla)
-        run: npx expo prebuild --platform android --clean
+      - name: Yarim Android Klasorunu Temizle ve Sifirdan Uret
+        run: |
+          rm -rf android
+          npx expo prebuild --platform android --clean
+
+      - name: Gradlew Izin Ver
+        run: |
+          cd android
+          chmod +x gradlew
 
       - name: APK Derle
         run: |
           cd android
-          gradle assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
       - name: APK Dosyasini Hazirla
         uses: actions/upload-artifact@v4
