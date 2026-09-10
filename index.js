@@ -2,22 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { AppRegistry, View, Text, TouchableOpacity, StyleSheet, Alert, Animated, Vibration } from 'react-native';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getDatabase, ref, push, onValue } from 'firebase/database';
+import { getDatabase, ref, push, onChildAdded, query, limitToLast } from 'firebase/database';
 
-// Firebase config
+// google-services.json dosyasından alınan güncel Firebase konfigürasyonun
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBK6spcarYy3VKA5wglur4p8QxgBAlFgVY",
+  authDomain: "heartbeatecrn.firebaseapp.com",
+  databaseURL: "https://heartbeatecrn-default-rtdb.firebaseio.com",
+  projectId: "heartbeatecrn",
+  storageBucket: "heartbeatecrn.firebasestorage.app",
+  messagingSenderId: "113461843211",
+  appId: "1:113461843211:android:dd73b49508afe904987e0e"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+
+// İkinizin telefonunun bağlanacağı ortak oda ID'si
+const PAIR_ROOM_ID = "ridvan_kalp_odasi_2026";
 
 function HeartBeatApp() {
   const [scaleAnim] = useState(new Animated.Value(1));
@@ -30,16 +33,19 @@ function HeartBeatApp() {
         listenForHeartbeats(result.user.uid);
       })
       .catch((error) => {
-        Alert.alert('Hata', error.message);
+        Alert.alert('Firebase Bağlantı Hatası', error.message);
       });
   }, []);
 
-  const listenForHeartbeats = (uid) => {
-    const heartbeatsRef = ref(db, `users/${uid}/heartbeats`);
-    onValue(heartbeatsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        playHeartbeatAnimation();
-        Vibration.vibrate([0, 100, 100, 100]);
+  const listenForHeartbeats = (myUid) => {
+    const heartbeatsRef = ref(db, `rooms/${PAIR_ROOM_ID}/heartbeats`);
+    const latestQuery = query(heartbeatsRef, limitToLast(1));
+
+    onChildAdded(latestQuery, (snapshot) => {
+      const data = snapshot.val();
+      // Kalp atışı senin dışındaki diğer kullanıcıdan geldiğinde tetikle
+      if (data && data.senderId !== myUid) {
+        triggerHeartbeatEffects();
       }
     });
   };
@@ -53,22 +59,25 @@ function HeartBeatApp() {
     ]).start();
   };
 
+  const triggerHeartbeatEffects = () => {
+    playHeartbeatAnimation();
+    Vibration.vibrate([0, 150, 100, 150]);
+  };
+
   const sendHeartbeat = async () => {
     if (!userId) {
-      Alert.alert('Hata', 'Kullanıcı ID bulunamadı');
+      Alert.alert('Uyarı', 'Sunucuya bağlanılıyor, lütfen 2 saniye sonra tekrar basın.');
       return;
     }
     try {
-      const heartbeatRef = ref(db, `users/${userId}/heartbeats`);
+      const heartbeatRef = ref(db, `rooms/${PAIR_ROOM_ID}/heartbeats`);
       await push(heartbeatRef, {
-        timestamp: new Date().getTime(),
-        message: 'Seni özledim! 💓'
+        senderId: userId,
+        timestamp: Date.now()
       });
-      playHeartbeatAnimation();
-      Vibration.vibrate([0, 100, 100, 100]);
-      Alert.alert('Başarılı', 'Kalp atışını gönderdim! 💓');
+      triggerHeartbeatEffects();
     } catch (error) {
-      Alert.alert('Hata', error.message);
+      Alert.alert('Gönderim Hatası', error.message);
     }
   };
 
@@ -80,7 +89,7 @@ function HeartBeatApp() {
           <Text style={styles.heartText}>❤️</Text>
         </TouchableOpacity>
       </Animated.View>
-      <Text style={styles.instruction}>Özledimi Butonu</Text>
+      <Text style={styles.instruction}>Seni Özledim Kalbi</Text>
     </View>
   );
 }
