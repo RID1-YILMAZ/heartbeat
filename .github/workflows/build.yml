@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK with Expo
 
 on:
   push:
@@ -8,38 +8,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Kodu Cek
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Node.js Kur
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
 
-      - name: Java JDK Kur
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Paketleri Yukle
+      - name: Install dependencies
         run: npm install
 
-      - name: Gradlew Izinlerini Düzenle
-        run: chmod +x android/gradlew
-
-      - name: APK Derle
-        run: |
-          cd android
-          ./gradlew assembleRelease --no-daemon
-
-      - name: APK Dosyasini Hazirla
-        uses: actions/upload-artifact@v4
+      - name: Setup Expo EAS
+        uses: expo/expo-github-action@v8
         with:
-          name: HeartBeat-Release-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build Local APK
+        run: npx expo run:android --variant release
