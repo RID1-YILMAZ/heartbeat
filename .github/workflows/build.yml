@@ -30,10 +30,12 @@ jobs:
       - name: Paketleri Yukle
         run: npm install
 
+      - name: Gradlew Izinlerini Düzenle
+        run: chmod +x android/gradlew
+
       - name: APK Derle
         run: |
           cd android
-          chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
       - name: APK Dosyasini Hazirla
