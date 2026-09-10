@@ -1,132 +1,203 @@
 import React, { useState, useEffect } from 'react';
-import { AppRegistry, View, Text, TouchableOpacity, StyleSheet, Alert, Animated, Vibration } from 'react-native';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getDatabase, ref, push, onChildAdded, query, limitToLast } from 'firebase/database';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  ActivityIndicator,
+} from 'react-native';
 
-// google-services.json dosyasından alınan güncel Firebase konfigürasyonun
-const firebaseConfig = {
-  apiKey: "AIzaSyBK6spcarYy3VKA5wglur4p8QxgBAlFgVY",
-  authDomain: "heartbeatecrn.firebaseapp.com",
-  databaseURL: "https://heartbeatecrn-default-rtdb.firebaseio.com",
-  projectId: "heartbeatecrn",
-  storageBucket: "heartbeatecrn.firebasestorage.app",
-  messagingSenderId: "113461843211",
-  appId: "1:113461843211:android:dd73b49508afe904987e0e"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-// İkinizin telefonunun bağlanacağı ortak oda ID'si
-const PAIR_ROOM_ID = "ridvan_kalp_odasi_2026";
-
-function HeartBeatApp() {
-  const [scaleAnim] = useState(new Animated.Value(1));
-  const [userId, setUserId] = useState(null);
+export default function App() {
+  const [loading, setLoading] = useState(true);
+  const [pulseCount, setPulseCount] = useState(72);
 
   useEffect(() => {
-    signInAnonymously(auth)
-      .then((result) => {
-        setUserId(result.user.uid);
-        listenForHeartbeats(result.user.uid);
-      })
-      .catch((error) => {
-        Alert.alert('Firebase Bağlantı Hatası', error.message);
-      });
+    // Uygulamanın çökmesini önlemek için güvenli başlatma bloğu
+    try {
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    } catch (error) {
+      console.error("Başlatma hatası:", error);
+      setLoading(false);
+    }
   }, []);
 
-  const listenForHeartbeats = (myUid) => {
-    const heartbeatsRef = ref(db, `rooms/${PAIR_ROOM_ID}/heartbeats`);
-    const latestQuery = query(heartbeatsRef, limitToLast(1));
-
-    onChildAdded(latestQuery, (snapshot) => {
-      const data = snapshot.val();
-      // Kalp atışı senin dışındaki diğer kullanıcıdan geldiğinde tetikle
-      if (data && data.senderId !== myUid) {
-        triggerHeartbeatEffects();
-      }
-    });
+  const handlePulse = () => {
+    setPulseCount((prev) => prev + 1);
   };
 
-  const playHeartbeatAnimation = () => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 1.3, duration: 100, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1.3, duration: 100, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const triggerHeartbeatEffects = () => {
-    playHeartbeatAnimation();
-    Vibration.vibrate([0, 150, 100, 150]);
-  };
-
-  const sendHeartbeat = async () => {
-    if (!userId) {
-      Alert.alert('Uyarı', 'Sunucuya bağlanılıyor, lütfen 2 saniye sonra tekrar basın.');
-      return;
-    }
-    try {
-      const heartbeatRef = ref(db, `rooms/${PAIR_ROOM_ID}/heartbeats`);
-      await push(heartbeatRef, {
-        senderId: userId,
-        timestamp: Date.now()
-      });
-      triggerHeartbeatEffects();
-    } catch (error) {
-      Alert.alert('Gönderim Hatası', error.message);
-    }
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <StatusBar barStyle="light-content" backgroundColor="#0B0813" />
+        <ActivityIndicator size="large" color="#A855F7" />
+        <Text style={styles.loadingText}>HeartBeat Yükleniyor...</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>HeartBeat 💓</Text>
-      <Animated.View style={[styles.heartContainer, { transform: [{ scale: scaleAnim }] }]}>
-        <TouchableOpacity style={styles.heartButton} onPress={sendHeartbeat}>
-          <Text style={styles.heartText}>❤️</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B0813" />
+      
+      {/* Üst Bar / Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>HeartBeat</Text>
+        <View style={styles.statusBadge}>
+          <View style={styles.statusDot} />
+          <Text style={styles.statusText}>Canlı</Text>
+        </View>
+      </View>
+
+      {/* Ana Kart / Gösterge Area */}
+      <View style={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>ANLIK NABIZ</Text>
+          <View style={styles.bpmRow}>
+            <Text style={styles.bpmNumber}>{pulseCount}</Text>
+            <Text style={styles.bpmUnit}>BPM</Text>
+          </View>
+          <Text style={styles.cardSubtext}>Durum: Normal ve Stabil</Text>
+        </View>
+
+        {/* Etkileşim Butonu */}
+        <TouchableOpacity 
+          style={styles.primaryButton} 
+          activeOpacity={0.8}
+          onPress={handlePulse}
+        >
+          <Text style={styles.buttonText}>Nabız Simüle Et</Text>
         </TouchableOpacity>
-      </Animated.View>
-      <Text style={styles.instruction}>Seni Özledim Kalbi</Text>
-    </View>
+      </View>
+
+      {/* Alt Bilgi */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Instagram Dark Style • Mor & Siyah Tema</Text>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0B0813', // Derin Instagram Siyahı
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0B0813',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff5f7'
   },
-  title: {
-    fontSize: 36,
+  loadingText: {
+    color: '#A855F7',
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1F192F',
+  },
+  headerTitle: {
+    color: '#F3E8FF',
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#e74c3c',
-    marginBottom: 30
+    letterSpacing: 0.5,
   },
-  heartContainer: {
-    marginBottom: 50
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1F192F',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  heartButton: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#e74c3c',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22C55E',
+    marginRight: 6,
+  },
+  statusText: {
+    color: '#E9D5FF',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  content: {
+    flex: 1,
+    padding: 20,
     justifyContent: 'center',
-    alignItems: 'center'
   },
-  heartText: {
-    fontSize: 80
+  card: {
+    backgroundColor: '#140E26', // Mor tonlu koyu kart
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2E1A47',
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  instruction: {
+  cardLabel: {
+    color: '#9333EA',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  bpmRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginVertical: 10,
+  },
+  bpmNumber: {
+    color: '#FFFFFF',
+    fontSize: 64,
+    fontWeight: '800',
+  },
+  bpmUnit: {
+    color: '#A855F7',
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  cardSubtext: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  primaryButton: {
+    backgroundColor: '#7E22CE', // Instagram Mor Vurgusu
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  buttonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    color: '#2c3e50',
-    fontWeight: '600'
-  }
+    fontWeight: '600',
+  },
+  footer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#581C87',
+    fontSize: 12,
+  },
 });
-
-AppRegistry.registerComponent('heartbeat', () => HeartBeatApp);
-export default HeartBeatApp;
