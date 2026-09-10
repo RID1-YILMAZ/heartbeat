@@ -10,6 +10,8 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Kodu Cek
@@ -30,7 +32,7 @@ jobs:
       - name: Paketleri Yukle
         run: npm install
 
-      - name: Eksik Android Projesini Sifirdan Oluştur
+      - name: Android Klasorunu Sifirdan Oluştur
         run: |
           rm -rf android
           npx expo prebuild --platform android --clean
@@ -45,8 +47,9 @@ jobs:
           cd android
           ./gradlew assembleRelease --no-daemon
 
-      - name: APK Dosyasini Hazirla
-        uses: actions/upload-artifact@v4
+      - name: GitHub Releases Üzerinde Yayınla
+        uses: softprops/action-gh-release@v2
         with:
-          name: HeartBeat-Release-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
+          tag_name: v1.0.${{ github.run_number }}
+          name: HeartBeat Release v1.0.${{ github.run_number }}
+          files: android/app/build/outputs/apk/release/app-release.apk
